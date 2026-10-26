@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#05060c" />
+    <title>Solar System — orbits through space</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='18' fill='%23ffb15a'/><ellipse cx='50' cy='50' rx='42' ry='16' fill='none' stroke='%238eb7ff' stroke-width='3'/></svg>" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,640&family=Outfit:wght@360;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="view"></div>
+    <div class="vignette" aria-hidden="true"></div>
+
+    <header class="top">
+      <p class="kicker">Observatory</p>
+      <h1>Solar System</h1>
+      <p class="sub">The Sun is moving through the galaxy. Planets keep orbiting, so their trails become helices.</p>
+    </header>
+
+    <section class="telemetry" aria-label="Simulation readout">
+      <div class="telemetry-top">
+        <p class="date" id="date">25 Oct 2026</p>
+        <button id="play" class="play" type="button">Pause</button>
+        <button id="tour-stop" class="play" type="button" hidden>Stop tour</button>
+      </div>
+      <p class="lesson" id="lesson">The Sun moves through the galaxy at 220 km/s. Planets keep orbiting, so each trail is a helix.</p>
+      <dl class="readout">
+        <div><dt>Elapsed</dt><dd id="elapsed">0.00 yr</dd></div>
+        <div><dt>Sun traveled</dt><dd id="traveled">0 AU</dd></div>
+        <div><dt>Frame</dt><dd id="frame">Through space</dd></div>
+        <div><dt id="focus-label">Sun</dt><dd id="focus-stat">220 km/s</dd></div>
+      </dl>
+    </section>
+
+    <aside id="details" class="details" hidden aria-label="Selected body">
+      <div class="details-head">
+        <p class="kicker" id="details-kind">Planet</p>
+        <button id="details-close" class="text-btn" type="button">Close</button>
+      </div>
+      <h2 id="details-name">Earth</h2>
+      <p id="details-summary" class="details-summary"></p>
+      <p id="details-scale" class="scale-note"></p>
+      <div class="segment units" id="units" role="group" aria-label="Distance units">
+        <button type="button" data-unit="au" aria-pressed="true">AU</button>
+        <button type="button" data-unit="km">km</button>
+        <button type="button" data-unit="lm">Light</button>
+        <button type="button" data-unit="ed">Earths</button>
+      </div>
+      <p class="label">This moment</p>
+      <dl id="details-now" class="details-facts"></dl>
+      <div class="tabs" id="details-tabs"></div>
+      <dl id="details-facts" class="details-facts"></dl>
+      <label class="label" for="compare-with">Compare</label>
+      <select id="compare-with"></select>
+      <p id="compare-out" class="hint"></p>
+    </aside>
+
+    <button id="toggle" class="toggle" type="button">Display</button>
+
+    <aside id="panel" class="panel" aria-label="Controls">
+      <div class="panel-head">
+        <h2>Display</h2>
+        <button id="close" class="text-btn" type="button">Close</button>
+      </div>
+
+      <div class="primer">
+        <p class="label">How to read this</p>
+        <ol class="primer-list">
+          <li>Time is real. One second here is a week, until you change the clock.</li>
+          <li>Distances on screen are compressed so the outer worlds fit. The card shows the true figure.</li>
+          <li>Click a planet, moon, craft, or star. The note at the lower left follows your selection.</li>
+          <li>Use Find, a date, or a tour when you want a specific lesson.</li>
+        </ol>
+      </div>
+
+      <p class="label">Find</p>
+      <input id="search" type="search" placeholder="Pluto, Halley, Europa, Voyager…" autocomplete="off" />
+      <div id="search-results" class="search-results"></div>
+
+      <p class="label">Tours</p>
+      <div class="presets" id="tours"></div>
+
+      <p class="label">Go to date</p>
+      <div class="date-row">
+        <input id="goto-date" type="date" value="2026-10-25" />
+        <button id="goto-go" type="button">Go</button>
+      </div>
+      <div class="presets" id="events"></div>
+
+      <p class="label">Reference frame</p>
+      <div class="segment" role="group" aria-label="Reference frame">
+        <button type="button" id="mode-space" aria-pressed="true">Through space</button>
+        <button type="button" id="mode-orbit" aria-pressed="false">Around the Sun</button>
+      </div>
+      <p class="hint" id="frame-lesson">The Sun is moving. Orbits stretch into helices along that path.</p>
+
+      <p class="label">Time</p>
+      <div class="presets" id="presets">
+        <button type="button" data-dps="0.000011574">Real time</button>
+        <button type="button" data-dps="0.0416667">Hour</button>
+        <button type="button" data-dps="1">Day</button>
+        <button type="button" data-dps="7" class="is-on">Week</button>
+        <button type="button" data-dps="30.437">Month</button>
+        <button type="button" data-dps="365.256">Year</button>
+        <button type="button" data-dps="3652.56">10 yr</button>
+      </div>
+      <input id="speed" type="range" min="0" max="100" step="0.1" value="68" aria-label="Time speed" />
+      <p class="hint" id="speed-hint">1 week / sec</p>
+
+      <p class="label">Trail length <span id="trail-val">5 yr</span></p>
+      <input id="trail" type="range" min="0.5" max="40" step="0.5" value="5" aria-label="Trail length in years" />
+
+      <p class="label">Sun motion on screen <span id="motion-val">8%</span></p>
+      <input id="motion" type="range" min="2" max="100" step="1" value="8" aria-label="Sun motion scale" />
+      <p class="hint" id="motion-hint"></p>
+
+      <p class="label">Ecliptic tilt <span id="tilt-val">60°</span></p>
+      <input id="tilt" type="range" min="0" max="90" step="1" value="60" aria-label="Ecliptic tilt" />
+      <p class="hint" id="tilt-hint">60° to the galactic plane — the real tilt.</p>
+
+      <div class="checks">
+        <label class="check"><input id="show-labels" type="checkbox" checked /> Labels</label>
+        <label class="check"><input id="show-trails" type="checkbox" checked /> Trails</label>
+        <label class="check"><input id="show-orbits" type="checkbox" /> Orbit guides</label>
+        <label class="check"><input id="show-belt" type="checkbox" checked /> Asteroids</label>
+        <label class="check"><input id="show-moon" type="checkbox" checked /> Moons</label>
+        <label class="check"><input id="show-satellites" type="checkbox" checked /> Satellites</label>
+        <label class="check"><input id="show-sat-tracks" type="checkbox" checked /> Satellite tracks</label>
+      </div>
+
+      <p class="label">Focus</p>
+      <div class="planets" id="planets"></div>
+
+      <div class="row-actions">
+        <button id="reset-view" class="text-btn" type="button">Reset view</button>
+        <button id="reset-time" class="text-btn" type="button">Reset time</button>
+        <button id="share" class="text-btn" type="button">Copy link</button>
+      </div>
+      <p class="footnote">Drag to look · scroll to zoom · click for a lesson. Space pauses.</p>
+    </aside>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
