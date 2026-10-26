@@ -43,6 +43,8 @@ const ui = {
   detailsScale: $("details-scale"),
   frameLesson: $("frame-lesson"),
   play: $("play"),
+  live: $("live"),
+  telemetry: document.querySelector(".telemetry"),
   toggle: $("toggle"),
   close: $("close"),
   panel: $("panel"),
@@ -88,6 +90,7 @@ const ui = {
   tours: $("tours"),
   tourStop: $("tour-stop"),
   share: $("share"),
+  lookPad: $("look-pad"),
 };
 
 const state = {
@@ -102,6 +105,7 @@ const state = {
   spinAccum: 0,
   units: "au",
   detailTab: "orbit",
+  live: false,
 };
 
 const LESSON = {
@@ -150,6 +154,8 @@ function lessonFor(body) {
 
 let tourLesson = null;
 let activeTour = null;
+let savedSpeed = null;
+const REAL_DPS = 1 / 86400;
 
 const eclipticVec = new THREE.Vector3();
 const sceneVec = new THREE.Vector3();
@@ -158,12 +164,16 @@ const side = new THREE.Vector3();
 const focusDesiredCam = new THREE.Vector3();
 const focusDesiredTarget = new THREE.Vector3();
 const focusOffset = new THREE.Vector3();
+const followBase = new THREE.Vector3(1, 0.45, 1);
 const vecA = new THREE.Vector3();
 const vecB = new THREE.Vector3();
 const vecC = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0);
 let focusTween = 0;
 let following = false;
+let followZoom = 1;
+let zoomCarry = 0;
+const zoomPoint = { x: 0, y: 0 };
 
 const view = $("view");
 const renderer = new THREE.WebGLRenderer({
@@ -189,7 +199,9 @@ controls.dampingFactor = 0.08;
 controls.minDistance = 2.9;
 controls.maxDistance = 6400;
 controls.zoomToCursor = true;
+controls.zoomSpeed = 0.7;
 controls.update();
+renderer.domElement.addEventListener("wheel", onSmoothWheel, { capture: true, passive: false });
 
 const labelRenderer = new CSS2DRenderer();
 labelRenderer.setSize(window.innerWidth, window.innerHeight);
@@ -241,7 +253,10 @@ renderer.setAnimationLoop(tick);
 function tick(now) {
   const dt = Math.min(0.05, (now - lastTime) / 1000);
   lastTime = now;
-  if (state.playing) {
+  if (state.live && state.playing) {
+    state.simDays = (Date.now() - EPOCH_MS) / 86400000;
+    state.spinAccum = state.simDays;
+  } else if (state.playing) {
     state.simDays += state.daysPerSecond * dt;
     const spinDays = Math.min(state.daysPerSecond, 0.3) * dt;
     state.spinAccum += spinDays;
@@ -253,7 +268,9 @@ function tick(now) {
   fadeGalaxy();
   updateSun(dt, now);
   updateRibbons();
+  applySmoothZoom(dt);
   updateFocus(dt);
+  applyLook(dt);
   const focusedNow = findFocus();
   const nearEarth = camera.position.distanceTo(bodies[2].world) < 16;
   controls.minDistance = (following && focusedNow?.kind === "satellite") || nearEarth ? 0.1 : 2.9;
@@ -284,7 +301,15 @@ function updateBodies(dt = 0) {
 
   updateMoons();
   updateCometTails();
-  satellites.update(dt, ui.satellites.checked, state.playing, state.daysPerSecond, camera, ui.satTracks.checked);
+  satellites.update(
+    dt,
+    ui.satellites.checked,
+    state.playing,
+    state.daysPerSecond,
+    camera,
+    ui.satTracks.checked,
+    state.live ? state.simDays : null,
+  );
   beyond.update(camera, state.simDays, state.focus);
   updateVectors();
 
@@ -365,11 +390,71 @@ function pushVert(pos, along, sideAttr, o, point, sideVec, sign, alongValue) {
   return o + 3;
 }
 
+function onSmoothWheel(event) {
+  if (!controls.enableZoom) return;
+  event.preventDefault();
+  event.stopPropagation();
+  let delta = event.deltaY;
+  if (event.deltaMode === 1) delta *= 16;
+  else if (event.deltaMode === 2) delta *= 100;
+  if (event.ctrlKey) delta *= 6;
+  delta = THREE.MathUtils.clamp(delta, -160, 160);
+  zoomCarry = THREE.MathUtils.clamp(zoomCarry + delta * 0.01, -8, 8);
+  zoomPoint.x = event.clientX;
+  zoomPoint.y = event.clientY;
+}
+
+function applySmoothZoom(dt) {
+  if (Math.abs(zoomCarry) < 0.0004) {
+    zoomCarry = 0;
+    return;
+  }
+  const step = zoomCarry * (1 - Math.exp(-dt * 11));
+  zoomCarry -= step;
+  if (following) {
+    followZoom = THREE.MathUtils.clamp(followZoom * Math.pow(0.95, -step), 0.08, 16);
+    return;
+  }
+  controls._updateZoomParameters(zoomPoint.x, zoomPoint.y);
+  controls._scale *= Math.pow(0.95, -step);
+}
+
+const lookHeld = { up: false, down: false, left: false, right: false };
+const LOOK_KEYS = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };
+
+function setLook(dir, on) {
+  if (!lookHeld[dir] && !on) return;
+  lookHeld[dir] = on;
+  ui.lookPad.querySelector(`[data-look="${dir}"]`)?.classList.toggle("is-on", on);
+  if (on) {
+    following = false;
+    focusTween = 0;
+  }
+}
+
+function applyLook(dt) {
+  const yaw = (lookHeld.right ? 1 : 0) - (lookHeld.left ? 1 : 0);
+  const pitch = (lookHeld.up ? 1 : 0) - (lookHeld.down ? 1 : 0);
+  if (!yaw && !pitch) return;
+  following = false;
+  focusTween = 0;
+  const step = 1.2 * dt;
+  if (yaw) controls._rotateLeft(yaw * step);
+  if (pitch) controls._rotateUp(pitch * step);
+}
+
+function placeLookPad() {
+  const covered = ui.panel.classList.contains("open") || !ui.details.hidden;
+  ui.lookPad.classList.toggle("away", covered);
+}
+
 function updateFocus(dt) {
   if (!following) return;
   const body = findFocus();
   const target = body ? body.world : sun.world;
   if (body?.kind === "satellite") aimSatelliteCamera(body, target);
+  else if (body?.kind === "probe") aimProbeCamera(body, target);
+  else focusOffset.copy(followBase).multiplyScalar(followZoom);
   focusDesiredTarget.copy(target);
   focusDesiredCam.copy(target).add(focusOffset);
   if (focusTween > 0) {
@@ -454,7 +539,10 @@ function updateHud() {
   ui.frame.textContent = state.spaceMode ? "Through space" : "Around the Sun";
 
   const focused = findFocus();
-  ui.lesson.textContent = lessonFor(focused);
+  ui.lesson.textContent = state.live
+    ? "Live. Orbits match this clock, and one second here is one second outside."
+    : lessonFor(focused);
+  ui.telemetry?.classList.toggle("is-live", state.live);
   if (!focused || focused.kind === "sun") {
     ui.focusLabel.textContent = "Sun";
     ui.focusStat.textContent = sun.storm > 0.35 ? "Solar storm · 220 km/s" : "220 km/s · 27,000 ly out";
@@ -543,6 +631,7 @@ function showDetails(body) {
   if (!fact) {
     ui.details.hidden = true;
     shownName = "";
+    placeLookPad();
     return;
   }
   const switched = shownName !== body.data.name;
@@ -578,6 +667,7 @@ function showDetails(body) {
     ui.compareOut.textContent = "Pick a second body to measure the gap, the radio time, and which one moves faster.";
   }
   ui.details.hidden = false;
+  placeLookPad();
   refreshLiveDetails(body);
 }
 
@@ -618,7 +708,7 @@ function aimSatelliteCamera(body, target) {
   const outward = target.clone().sub(body.host.world);
   if (outward.lengthSq() < 1e-4) return;
   outward.normalize();
-  const dist = body.focusDist;
+  const dist = body.focusDist * followZoom;
   if (body.def.model === "jwst") {
     const side = new THREE.Vector3().crossVectors(outward, new THREE.Vector3(0, 1, 0));
     if (side.lengthSq() < 1e-4) side.set(1, 0, 0);
@@ -626,7 +716,25 @@ function aimSatelliteCamera(body, target) {
     focusOffset.copy(side.multiplyScalar(0.72).add(outward.clone().multiplyScalar(0.62)).normalize()).multiplyScalar(dist);
     return;
   }
+  if (body.def.model === "iss") {
+    const radial = new THREE.Vector3(0, 1, 0).applyQuaternion(body.anchor.quaternion);
+    const flight = new THREE.Vector3(0, 0, 1).applyQuaternion(body.anchor.quaternion);
+    focusOffset.copy(flight.multiplyScalar(0.78).add(radial.multiplyScalar(0.38)).normalize()).multiplyScalar(dist);
+    return;
+  }
   focusOffset.copy(outward.multiplyScalar(0.82).add(new THREE.Vector3(0, 0.55, 0)).normalize()).multiplyScalar(dist);
+}
+
+function aimProbeCamera(body, target) {
+  vecA.copy(target);
+  if (vecA.lengthSq() < 1e-4) vecA.set(0, 0, 1);
+  vecA.negate().normalize();
+  vecB.crossVectors(UP, vecA);
+  if (vecB.lengthSq() < 1e-4) vecB.set(1, 0, 0);
+  vecB.normalize();
+  vecC.crossVectors(vecA, vecB).normalize();
+  const dist = body.focusDist * followZoom;
+  focusOffset.copy(vecA).multiplyScalar(0.9).addScaledVector(vecC, 0.32).addScaledVector(vecB, 0.24).normalize().multiplyScalar(dist);
 }
 
 function focusBody(name) {
@@ -655,6 +763,9 @@ function focusBody(name) {
       else focusOffset.copy(outward.multiplyScalar(0.82).add(new THREE.Vector3(0, 0.5, 0)).normalize().multiplyScalar(dist));
     }
   }
+  followZoom = 1;
+  if (body.kind === "probe") aimProbeCamera(body, target);
+  followBase.copy(focusOffset);
   following = true;
   focusDesiredTarget.copy(target);
   focusDesiredCam.copy(target).add(focusOffset);
@@ -682,6 +793,7 @@ function syncFrameLesson() {
 function setPanel(open) {
   ui.panel.classList.toggle("open", open);
   ui.toggle.hidden = open;
+  placeLookPad();
 }
 
 function bindUi() {
@@ -689,8 +801,24 @@ function bindUi() {
 
   ui.detailsClose.addEventListener("click", () => {
     ui.details.hidden = true;
+    placeLookPad();
   });
+  ui.lookPad.addEventListener("pointerdown", (event) => {
+    const button = event.target.closest("button");
+    if (!button?.dataset.look) return;
+    event.preventDefault();
+    setLook(button.dataset.look, true);
+    button.setPointerCapture(event.pointerId);
+  });
+  const releaseLook = (event) => {
+    const button = event.target.closest("button");
+    if (!button?.dataset.look) return;
+    setLook(button.dataset.look, false);
+  };
+  ui.lookPad.addEventListener("pointerup", releaseLook);
+  ui.lookPad.addEventListener("pointercancel", releaseLook);
   ui.play.addEventListener("click", togglePlay);
+  ui.live.addEventListener("click", () => setLive(!state.live));
   ui.toggle.addEventListener("click", () => setPanel(true));
   ui.close.addEventListener("click", () => setPanel(false));
   ui.modeSpace.addEventListener("click", () => setMode(true));
@@ -699,12 +827,14 @@ function bindUi() {
   ui.presets.addEventListener("click", (event) => {
     const button = event.target.closest("button");
     if (!button) return;
+    leaveLive();
     state.daysPerSecond = Number(button.dataset.dps);
     ui.speed.value = String(dpsToSlider(state.daysPerSecond));
     syncSpeedUi();
   });
 
   ui.speed.addEventListener("input", () => {
+    leaveLive();
     state.daysPerSecond = sliderToDps(Number(ui.speed.value));
     syncSpeedUi();
   });
@@ -749,16 +879,29 @@ function bindUi() {
     controls.target.copy(HOME_TARGET);
   });
   ui.resetTime.addEventListener("click", () => {
+    leaveLive();
     state.simDays = 0;
     state.spinAccum = 0;
     updateHud();
   });
 
   window.addEventListener("keydown", (event) => {
+    const dir = LOOK_KEYS[event.code];
+    if (dir) {
+      const typing = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLSelectElement;
+      if (typing) return;
+      event.preventDefault();
+      if (!event.repeat) setLook(dir, true);
+      return;
+    }
     if (event.code !== "Space" || event.repeat) return;
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLButtonElement) return;
     event.preventDefault();
     togglePlay();
+  });
+  window.addEventListener("keyup", (event) => {
+    const dir = LOOK_KEYS[event.code];
+    if (dir) setLook(dir, false);
   });
 
   ui.units.addEventListener("click", (event) => {
@@ -819,12 +962,54 @@ function buildFocusButtons() {
 
 function togglePlay() {
   state.playing = !state.playing;
+  if (state.live && state.playing) {
+    state.simDays = (Date.now() - EPOCH_MS) / 86400000;
+    state.spinAccum = state.simDays;
+  }
   ui.play.textContent = state.playing ? "Pause" : "Play";
+}
+
+function setLive(on) {
+  if (on) {
+    if (activeTour) {
+      activeTour = null;
+      tourLesson = null;
+      ui.tourStop.hidden = true;
+    }
+    if (!state.live) savedSpeed = state.daysPerSecond;
+    state.live = true;
+    state.playing = true;
+    state.daysPerSecond = REAL_DPS;
+    ui.speed.value = String(dpsToSlider(REAL_DPS));
+    state.simDays = (Date.now() - EPOCH_MS) / 86400000;
+    state.spinAccum = state.simDays;
+    syncSpeedUi();
+  } else if (state.live) {
+    state.live = false;
+    if (savedSpeed != null) {
+      state.daysPerSecond = savedSpeed;
+      ui.speed.value = String(dpsToSlider(savedSpeed));
+      savedSpeed = null;
+      syncSpeedUi();
+    }
+  }
+  ui.live.setAttribute("aria-pressed", String(state.live));
+  ui.play.textContent = state.playing ? "Pause" : "Play";
+  updateBodies();
+  updateHud();
+}
+
+function leaveLive() {
+  if (!state.live) return;
+  state.live = false;
+  savedSpeed = null;
+  ui.live.setAttribute("aria-pressed", "false");
 }
 
 function goToIso(iso, focusName) {
   const days = simDaysFromIso(iso);
   if (days == null || Number.isNaN(days)) return;
+  leaveLive();
   state.simDays = days;
   state.spinAccum = 0;
   updateBodies();
@@ -853,6 +1038,7 @@ function buildTours() {
 }
 
 function startTour(tour) {
+  leaveLive();
   const snap = activeTour?.snap || {
     dps: state.daysPerSecond,
     motion: ui.motion.value,
@@ -963,6 +1149,8 @@ function copyShareLink() {
   url.searchParams.set("f", state.focus);
   url.searchParams.set("m", state.spaceMode ? "space" : "sun");
   url.searchParams.set("s", state.daysPerSecond.toFixed(6));
+  if (state.live) url.searchParams.set("l", "1");
+  else url.searchParams.delete("l");
   history.replaceState(null, "", url);
   const text = url.toString();
   const done = () => {
@@ -988,6 +1176,7 @@ function applyQuery() {
   if (q.has("d") && Number.isFinite(days)) state.simDays = days;
   const focus = q.get("f");
   if (focus && catalog().some((body) => body.data.name === focus)) focusBody(focus);
+  if (q.get("l") === "1") setLive(true);
 }
 
 function createVectors() {
@@ -1129,6 +1318,16 @@ function formatDate(simDays) {
     return `${Math.round(abs).toLocaleString()} ${years + 2026 >= 0 ? "CE" : "BCE"}`;
   }
   const date = new Date(EPOCH_MS + simDays * 86400000);
+  if (state.live) {
+    return date.toLocaleString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    });
+  }
   return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 

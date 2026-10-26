@@ -24,6 +24,7 @@
     <section class="telemetry" aria-label="Simulation readout">
       <div class="telemetry-top">
         <p class="date" id="date">25 Oct 2026</p>
+        <button id="live" class="play" type="button" aria-pressed="false" title="Match every orbit to the present moment">Live</button>
         <button id="play" class="play" type="button">Pause</button>
         <button id="tour-stop" class="play" type="button" hidden>Stop tour</button>
       </div>
@@ -59,22 +60,19 @@
       <p id="compare-out" class="hint"></p>
     </aside>
 
+    <div class="pad" id="look-pad" role="group" aria-label="Look around">
+      <button type="button" data-look="up" aria-label="Look up">↑</button>
+      <button type="button" data-look="left" aria-label="Look left">←</button>
+      <button type="button" data-look="right" aria-label="Look right">→</button>
+      <button type="button" data-look="down" aria-label="Look down">↓</button>
+    </div>
+
     <button id="toggle" class="toggle" type="button">Display</button>
 
     <aside id="panel" class="panel" aria-label="Controls">
       <div class="panel-head">
         <h2>Display</h2>
         <button id="close" class="text-btn" type="button">Close</button>
-      </div>
-
-      <div class="primer">
-        <p class="label">How to read this</p>
-        <ol class="primer-list">
-          <li>Time is real. One second here is a week, until you change the clock.</li>
-          <li>Distances on screen are compressed so the outer worlds fit. The card shows the true figure.</li>
-          <li>Click a planet, moon, craft, or star. The note at the lower left follows your selection.</li>
-          <li>Use Find, a date, or a tour when you want a specific lesson.</li>
-        </ol>
       </div>
 
       <p class="label">Find</p>
@@ -140,7 +138,7 @@
         <button id="reset-time" class="text-btn" type="button">Reset time</button>
         <button id="share" class="text-btn" type="button">Copy link</button>
       </div>
-      <p class="footnote">Drag to look · scroll to zoom · click for a lesson. Space pauses.</p>
+      <p class="footnote">Arrows or drag to look · scroll to zoom · click for a lesson. Space pauses.</p>
     </aside>
 
     <script type="module" src="/src/main.js"></script>

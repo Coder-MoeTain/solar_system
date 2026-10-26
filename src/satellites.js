@@ -9,7 +9,7 @@ const TAU = Math.PI * 2;
 const ISS_PERIOD_DAYS = 92.68 / 1440;
 
 const NAMED = [
-  { planet: "Earth", name: "ISS", model: "iss", alt: 420, incl: 51.64, periodMin: 92.68, raan: 18, phase: 0.5, speed: 7.66, color: "#ffe1a8", blurb: "7.66 km/s · 420 km · 92.7 min", focus: 0.72 },
+  { planet: "Earth", name: "ISS", model: "iss", alt: 420, incl: 51.64, periodMin: 92.68, raan: 18, phase: 0.5, speed: 7.66, color: "#ffe1a8", blurb: "7.66 km/s · 420 km · 92.7 min", focus: 0.52 },
   { planet: "Earth", name: "Tiangong", model: "tiangong", alt: 389, incl: 41.47, periodMin: 92.2, raan: 150, phase: 2.1, speed: 7.68, color: "#f0d2b0", blurb: "7.68 km/s · 390 km · 41.5°", focus: 0.5 },
   { planet: "Earth", name: "Hubble", model: "hubble", alt: 535, incl: 28.47, periodMin: 95.42, raan: 78, phase: 1.3, speed: 7.59, color: "#d5e4ff", blurb: "7.59 km/s · 535 km · 28.5°", focus: 0.42 },
   { planet: "Earth", name: "Landsat 9", model: "bus", alt: 705, incl: 98.2, periodMin: 99.0, raan: 36, phase: 0.7, speed: 7.5, color: "#d5e2cf", blurb: "7.50 km/s · 705 km · sun-sync", focus: 0.32 },
@@ -84,25 +84,127 @@ function addMesh(group, geometry, material, x, y, z, rotX = 0) {
   return mesh;
 }
 
+function solarBlanketTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 128;
+  canvas.height = 256;
+  const g = canvas.getContext("2d");
+  g.fillStyle = "#1c4e9a";
+  g.fillRect(0, 0, 128, 256);
+  g.strokeStyle = "#e2b15a";
+  g.lineWidth = 2;
+  for (let y = 8; y < 256; y += 32) {
+    g.beginPath();
+    g.moveTo(0, y);
+    g.lineTo(128, y);
+    g.stroke();
+  }
+  for (let x = 8; x < 128; x += 20) {
+    g.beginPath();
+    g.moveTo(x, 0);
+    g.lineTo(x, 256);
+    g.stroke();
+  }
+  g.strokeStyle = "#f3d7a2";
+  g.lineWidth = 4;
+  g.strokeRect(2, 2, 124, 252);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
 function makeISS(kit) {
   const g = new THREE.Group();
-  addMesh(g, new THREE.BoxGeometry(1.25, 0.045, 0.045), kit.metal, 0, 0, 0);
-  for (const x of [-0.46, -0.22, 0.22, 0.46]) {
-    addMesh(g, new THREE.BoxGeometry(0.012, 0.08, 0.012), kit.metal, x, 0, 0);
-    addMesh(g, new THREE.BoxGeometry(0.16, 0.4, 0.012), kit.gold, x, 0.28, 0);
-    addMesh(g, new THREE.BoxGeometry(0.16, 0.4, 0.012), kit.blue, x, -0.28, 0);
+  const cells = new THREE.MeshStandardMaterial({
+    map: solarBlanketTexture(),
+    color: 0xd5e4ff,
+    metalness: 0.42,
+    roughness: 0.38,
+    emissive: 0x12305c,
+    emissiveIntensity: 0.45,
+  });
+  const radiator = new THREE.MeshStandardMaterial({ color: 0xf6f7f8, metalness: 0.22, roughness: 0.42 });
+  const rus = new THREE.MeshStandardMaterial({ color: 0xe6e0d4, metalness: 0.28, roughness: 0.5 });
+  const glass = new THREE.MeshStandardMaterial({
+    color: 0x9fd0ff,
+    metalness: 0.15,
+    roughness: 0.12,
+    emissive: 0x16344c,
+    emissiveIntensity: 0.55,
+  });
+  const arm = new THREE.MeshStandardMaterial({ color: 0xf7f7f5, metalness: 0.35, roughness: 0.4 });
+  const part = (geometry, material, x, y, z, rx = 0, ry = 0, rz = 0) => {
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(x, y, z);
+    mesh.rotation.set(rx, ry, rz);
+    g.add(mesh);
+    return mesh;
+  };
+  const alongZ = Math.PI / 2;
+  const alongX = Math.PI / 2;
+
+  const bays = 14;
+  const bay = 0.16;
+  const span = bays * bay;
+  part(new THREE.BoxGeometry(span, 0.03, 0.03), kit.metal, 0, 0.034, 0);
+  part(new THREE.BoxGeometry(span, 0.03, 0.03), kit.metal, 0, -0.034, 0);
+  part(new THREE.BoxGeometry(span, 0.022, 0.022), kit.metal, 0, 0, 0.034);
+  part(new THREE.BoxGeometry(span, 0.022, 0.022), kit.metal, 0, 0, -0.034);
+  const upright = new THREE.BoxGeometry(0.016, 0.09, 0.016);
+  const cross = new THREE.BoxGeometry(0.012, 0.012, 0.08);
+  for (let i = 0; i <= bays; i++) {
+    const x = -span / 2 + i * bay;
+    part(upright, kit.metal, x, 0, 0);
+    part(cross, kit.metal, x, 0, 0);
   }
-  const tube = new THREE.CylinderGeometry(0.055, 0.055, 0.16, 14);
-  const mods = [
-    [-0.24, kit.white],
-    [-0.08, kit.dark],
-    [0.08, kit.white],
-    [0.22, kit.white],
-  ];
-  for (const [z, material] of mods) addMesh(g, tube, material, 0, 0, z, Math.PI / 2);
-  addMesh(g, new THREE.BoxGeometry(0.34, 0.012, 0.16), kit.white, 0.05, 0.02, -0.02);
-  addMesh(g, new THREE.SphereGeometry(0.028, 12, 10), kit.white, 0, -0.07, 0.08);
-  g.scale.setScalar(0.09);
+
+  const blanket = new THREE.BoxGeometry(0.2, 0.64, 0.012);
+  const edge = new THREE.BoxGeometry(0.012, 0.66, 0.016);
+  const mast = new THREE.CylinderGeometry(0.008, 0.008, 0.7, 6);
+  const joint = new THREE.CylinderGeometry(0.02, 0.02, 0.05, 10);
+  for (const x of [-1.02, -0.5, 0.5, 1.02]) {
+    part(joint, kit.silver, x, 0, 0, 0, 0, alongX);
+    part(mast, kit.metal, x, 0, 0);
+    for (const y of [0.4, -0.4]) {
+      part(blanket, cells, x, y, 0);
+      part(edge, kit.silver, x - 0.1, y, 0);
+      part(edge, kit.silver, x + 0.1, y, 0);
+    }
+  }
+
+  const panel = new THREE.BoxGeometry(0.18, 0.014, 0.52);
+  for (const x of [-0.24, 0.24]) {
+    part(panel, radiator, x, 0, 0.4);
+    part(panel, radiator, x, 0, -0.4);
+  }
+
+  const tube = (radius, length) => new THREE.CylinderGeometry(radius, radius, length, 18);
+  part(tube(0.055, 0.26), rus, 0, 0, -0.56, alongZ);
+  part(new THREE.ConeGeometry(0.028, 0.07, 12), kit.dark, 0, 0, -0.72, -alongZ);
+  part(new THREE.BoxGeometry(0.32, 0.01, 0.09), cells, 0, 0.03, -0.56);
+  part(new THREE.BoxGeometry(0.01, 0.2, 0.08), cells, 0.1, 0, -0.64);
+  part(tube(0.048, 0.18), kit.white, 0, 0, -0.32, alongZ);
+  part(tube(0.052, 0.1), kit.white, 0, 0, -0.16, alongZ);
+  part(tube(0.045, 0.28), kit.white, 0, 0, 0.04, alongZ);
+  for (const z of [-0.04, 0.04, 0.12]) part(new THREE.SphereGeometry(0.012, 8, 6), glass, 0.04, 0.02, z);
+  part(tube(0.052, 0.12), kit.white, 0, 0, 0.26, alongZ);
+  part(new THREE.ConeGeometry(0.028, 0.08, 12), kit.white, 0, 0, 0.37, -alongZ);
+  part(tube(0.04, 0.18), kit.white, 0.16, 0, 0.26, 0, 0, alongX);
+  part(tube(0.046, 0.2), kit.white, -0.18, 0, 0.24, 0, 0, alongX);
+  part(new THREE.BoxGeometry(0.1, 0.02, 0.12), kit.silver, -0.34, 0.03, 0.24);
+  part(tube(0.04, 0.14), kit.white, -0.14, 0, -0.16, 0, 0, alongX);
+  part(new THREE.CylinderGeometry(0.03, 0.034, 0.028, 8), kit.white, -0.14, -0.055, -0.16);
+  part(new THREE.CylinderGeometry(0.022, 0.022, 0.01, 8), glass, -0.14, -0.072, -0.16);
+  part(tube(0.026, 0.08), kit.white, 0.09, 0.03, -0.16, 0, 0, alongX);
+  part(tube(0.044, 0.2), rus, 0, -0.015, -0.8, alongZ);
+  part(new THREE.BoxGeometry(0.18, 0.008, 0.07), cells, 0, 0.02, -0.86);
+
+  part(new THREE.CylinderGeometry(0.008, 0.008, 0.24, 6), arm, 0.14, 0.09, 0.02, 0.5, 0.2, 0.4);
+  part(new THREE.SphereGeometry(0.016, 8, 6), kit.dark, 0.2, 0.15, 0.08);
+  part(new THREE.CylinderGeometry(0.007, 0.007, 0.2, 6), arm, 0.26, 0.2, 0.14, 0.9, 0.3, 0.2);
+  part(new THREE.BoxGeometry(0.05, 0.012, 0.08), kit.dark, 0.08, 0.05, -0.02);
+
+  g.scale.setScalar(0.105);
   return g;
 }
 
@@ -346,7 +448,7 @@ export function createSatellites(bodies, scene, makeLabel, focusBody) {
     spec.pickMesh.instanceMatrix.needsUpdate = true;
   }
 
-  function update(dt, show, playing, daysPerSecond, camera, tracks = true) {
+  function update(dt, show, playing, daysPerSecond, camera, tracks = true, absoluteDays = null) {
     for (const frame of frames.values()) frame.visible = show;
     const showPaths = (host) => {
       if (!show || !tracks || !camera) return false;
@@ -360,7 +462,9 @@ export function createSatellites(bodies, scene, makeLabel, focusBody) {
       spec.pickMesh.visible = spec.mesh.visible;
       for (const line of spec.lines) line.visible = paths;
     }
-    if (playing && dt > 0) {
+    if (Number.isFinite(absoluteDays)) {
+      satDays = absoluteDays;
+    } else if (playing && dt > 0) {
       const cap = 0.12 * ISS_PERIOD_DAYS;
       satDays += Math.min(daysPerSecond, cap) * dt;
     }

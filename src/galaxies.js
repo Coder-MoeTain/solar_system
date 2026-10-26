@@ -83,24 +83,6 @@ function makeMilkyWayTexture() {
   g.ellipse(cx, cy, pixels * 0.49, pixels * 0.455, -0.15, 0, Math.PI * 2);
   g.fill();
 
-  const strokePath = (pts, width, color, radialShift) => {
-    if (pts.length < 2) return;
-    g.beginPath();
-    for (let i = 0; i < pts.length; i++) {
-      const p = pts[i];
-      const c = Math.cos(p.theta);
-      const s = Math.sin(p.theta);
-      const [x, y] = plot(p.x + c * radialShift, p.y + s * radialShift);
-      if (i === 0) g.moveTo(x, y);
-      else g.lineTo(x, y);
-    }
-    g.strokeStyle = color;
-    g.lineWidth = width;
-    g.lineCap = "round";
-    g.lineJoin = "round";
-    g.stroke();
-  };
-
   const speck = (lx, ly, color, size) => {
     const [x, y] = plot(lx, ly);
     g.fillStyle = color;
@@ -110,24 +92,6 @@ function makeMilkyWayTexture() {
   for (const arm of ARMS) {
     const pts = armPoints(arm);
     const w = arm.weight;
-    strokePath(pts, 20 * w, `rgba(255, 190, 140, ${0.14 * w})`, 0);
-    strokePath(pts, 7 * w, `rgba(255, 228, 196, ${0.34 * w})`, 0);
-    strokePath(pts, 2.2 * Math.max(w, 0.45), `rgba(255, 246, 232, ${0.55 * w})`, 5);
-    for (let i = 0; i < pts.length; i += 1) {
-      const p = pts[i];
-      const across = (rng() - 0.5) * (78 * w * (1.05 - p.r / 1800));
-      const px = -Math.sin(p.theta);
-      const py = Math.cos(p.theta);
-      const ox = Math.cos(p.theta) * (10 + rng() * 26);
-      const oy = Math.sin(p.theta) * (10 + rng() * 26);
-      const young = rng() > 0.72;
-      speck(
-        p.x + px * across + ox,
-        p.y + py * across + oy,
-        young ? "rgba(186, 214, 255, 0.9)" : "rgba(255, 232, 204, 0.85)",
-        rng() > 0.94 ? 2 : 1,
-      );
-    }
     for (let k = 0; k < Math.round(7 * w); k++) {
       const p = pts[Math.floor(rng() * pts.length)];
       if (!p || p.r < 380) continue;
@@ -142,7 +106,6 @@ function makeMilkyWayTexture() {
       g.arc(x, y, radius, 0, Math.PI * 2);
       g.fill();
     }
-    strokePath(pts, 4.5 * w, `rgba(22, 10, 6, ${0.62 * arm.dust})`, -24);
   }
 
   g.save();
@@ -241,7 +204,6 @@ function makeStarfield() {
   const sizes = new Float32Array(count);
   const rng = mulberry32(91);
   const Rd = 540;
-  const armStars = 1600;
 
   const place = (n, x, y, z, r, hot) => {
     const ang = Math.atan2(y, x);
@@ -257,7 +219,7 @@ function makeStarfield() {
   };
 
   let n = 0;
-  while (n < count - armStars) {
+  while (n < count) {
     let x;
     let y;
     let r;
@@ -281,21 +243,6 @@ function makeStarfield() {
     const z = gauss(rng) * (thick ? 42 + r * 0.018 : 11 + r * 0.009);
     place(n, x, y, z, r, rng() > 0.86);
     n += 1;
-  }
-
-  for (const arm of ARMS) {
-    const pts = armPoints(arm);
-    if (!pts.length) continue;
-    const quota = Math.round(armStars * (arm.weight / ARMS.reduce((sum, item) => sum + item.weight, 0)));
-    for (let k = 0; k < quota && n < count; k++) {
-      const p = pts[Math.floor(rng() * pts.length)];
-      const across = gauss(rng) * (26 * arm.weight);
-      const x = p.x - Math.sin(p.theta) * across + Math.cos(p.theta) * 18;
-      const y = p.y + Math.cos(p.theta) * across + Math.sin(p.theta) * 18;
-      if (x * x + (y + SUN_OUT) * (y + SUN_OUT) < 175 * 175) continue;
-      place(n, x, y, gauss(rng) * 8, p.r, true);
-      n += 1;
-    }
   }
 
   const geometry = new THREE.BufferGeometry();

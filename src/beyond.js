@@ -10,8 +10,8 @@ const COS_E = Math.cos(OBL);
 const SIN_E = Math.sin(OBL);
 
 const CATALOG = [
-  { kind: "probe", name: "Voyager 1", ra: 17.22, dec: 12.4, au: 169, speed: 17, color: "#f3d7a4", radius: 0.55, pick: 6, focus: 22, blurb: "169 AU · interstellar · 17 km/s" },
-  { kind: "probe", name: "Voyager 2", ra: 19.97, dec: -57.2, au: 141, speed: 15, color: "#e7c89a", radius: 0.5, pick: 6, focus: 22, blurb: "141 AU · interstellar · 15 km/s" },
+  { kind: "probe", name: "Voyager 1", ra: 17.22, dec: 12.4, au: 169, speed: 17, color: "#f3d7a4", radius: 1.2, pick: 6, focus: 6.6, blurb: "169 AU · interstellar · 17 km/s" },
+  { kind: "probe", name: "Voyager 2", ra: 19.97, dec: -57.2, au: 141, speed: 15, color: "#e7c89a", radius: 1.2, pick: 6, focus: 6.6, blurb: "141 AU · interstellar · 15 km/s" },
 
   { kind: "star", name: "Proxima Centauri", ra: 14.495, dec: -62.68, ly: 4.25, color: "#ff5a3c", radius: 0.75, pick: 8, focus: 28, blurb: "4.25 ly · M5.5Ve · closest star" },
   { kind: "star", name: "Alpha Centauri", ra: 14.66, dec: -60.84, ly: 4.34, color: "#ffe0b0", radius: 1.15, pick: 8, focus: 30, blurb: "4.34 ly · G2V + K1V" },
@@ -67,6 +67,103 @@ function glowTexture() {
   return tex;
 }
 
+function makeVoyager() {
+  const craft = new THREE.Group();
+  const white = new THREE.MeshStandardMaterial({ color: 0xf2efe6, roughness: 0.48, metalness: 0.08 });
+  const gold = new THREE.MeshStandardMaterial({ color: 0xd4b06a, roughness: 0.42, metalness: 0.48 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x1c1f26, roughness: 0.52, metalness: 0.32 });
+  const metal = new THREE.MeshStandardMaterial({ color: 0xb7b2a8, roughness: 0.38, metalness: 0.5 });
+  const blanket = new THREE.MeshStandardMaterial({ color: 0x2c3038, roughness: 0.7, metalness: 0.08 });
+
+  const dishPts = [];
+  const innerPts = [];
+  for (let i = 0; i <= 16; i++) {
+    const t = i / 16;
+    dishPts.push(new THREE.Vector2(t * 1.18, t * t * 0.36));
+    innerPts.push(new THREE.Vector2(t * 1.05, t * t * 0.32 + 0.02));
+  }
+  const dish = new THREE.Mesh(new THREE.LatheGeometry(dishPts, 48), white);
+  const inner = new THREE.Mesh(new THREE.LatheGeometry(innerPts, 40), gold);
+  dish.rotation.x = -Math.PI / 2;
+  inner.rotation.x = -Math.PI / 2;
+  craft.add(dish, inner);
+
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(1.18, 0.028, 8, 48), metal);
+  rim.position.z = -0.36;
+  craft.add(rim);
+
+  const feed = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.1, 0.26, 12), metal);
+  feed.rotation.x = Math.PI / 2;
+  feed.position.z = -0.52;
+  craft.add(feed);
+  const feedCap = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), dark);
+  feedCap.position.z = -0.66;
+  craft.add(feedCap);
+  for (let i = 0; i < 3; i++) {
+    const angle = (i / 3) * Math.PI * 2 + 0.4;
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.016, 0.016), metal);
+    bar.position.set(Math.cos(angle) * 0.58, Math.sin(angle) * 0.58, -0.28);
+    bar.rotation.z = angle;
+    craft.add(bar);
+  }
+
+  const bus = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.44, 0.58, 10), white);
+  bus.rotation.x = Math.PI / 2;
+  bus.position.z = 0.46;
+  craft.add(bus);
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.455, 0.455, 0.1, 10), blanket);
+  band.rotation.x = Math.PI / 2;
+  band.position.z = 0.5;
+  craft.add(band);
+  const record = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.018, 24), gold);
+  record.rotation.z = Math.PI / 2;
+  record.position.set(0.46, 0.08, 0.42);
+  craft.add(record);
+
+  const science = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.045, 0.045), metal);
+  science.position.set(-1.22, -0.18, 0.58);
+  craft.add(science);
+  const scan = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.2, 0.16), dark);
+  scan.position.set(-2.08, -0.16, 0.58);
+  craft.add(scan);
+  const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.07, 0.14, 12), metal);
+  lens.rotation.x = Math.PI / 2;
+  lens.position.set(-2.08, -0.16, 0.4);
+  craft.add(lens);
+  const wide = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.1, 10), dark);
+  wide.rotation.z = Math.PI / 2;
+  wide.position.set(-2.2, -0.16, 0.58);
+  craft.add(wide);
+
+  const rtgBoom = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.04, 0.04), metal);
+  rtgBoom.position.set(0.9, -0.32, 0.72);
+  craft.add(rtgBoom);
+  for (let i = 0; i < 3; i++) {
+    const rtg = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.34, 8), dark);
+    rtg.rotation.z = Math.PI / 2;
+    rtg.position.set(0.62 + i * 0.28, -0.48, 0.72);
+    const finA = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 0.012), gold);
+    const finB = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.012, 0.2), gold);
+    finA.position.copy(rtg.position);
+    finB.position.copy(rtg.position);
+    craft.add(rtg, finA, finB);
+  }
+
+  const mag = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.01, 2.5, 6), metal);
+  mag.position.set(0.22, 1.45, 0.64);
+  craft.add(mag);
+  const magTip = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.07, 0.14), dark);
+  magTip.position.set(0.22, 2.72, 0.64);
+  craft.add(magTip);
+
+  const lowGain = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.42, 6), metal);
+  lowGain.position.set(-0.22, 0.38, 0.2);
+  craft.add(lowGain);
+
+  craft.scale.setScalar(0.82);
+  return craft;
+}
+
 export function createBeyond(ecliptic, scene, makeLabel, focusBody) {
   const glowMap = glowTexture();
   const stars = [];
@@ -80,8 +177,9 @@ export function createBeyond(ecliptic, scene, makeLabel, focusBody) {
     ecliptic.add(anchor);
 
     const color = new THREE.Color(def.color);
-    const material = new THREE.MeshBasicMaterial({ color });
-    const mesh = new THREE.Mesh(new THREE.SphereGeometry(def.radius, 20, 14), material);
+    const mesh = def.kind === "probe"
+      ? makeVoyager()
+      : new THREE.Mesh(new THREE.SphereGeometry(def.radius, 20, 14), new THREE.MeshBasicMaterial({ color }));
     anchor.add(mesh);
 
     const glow = new THREE.Sprite(
@@ -91,10 +189,10 @@ export function createBeyond(ecliptic, scene, makeLabel, focusBody) {
         transparent: true,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
-        opacity: def.kind === "probe" ? 0.35 : 0.7,
+        opacity: def.kind === "probe" ? 0.2 : 0.7,
       }),
     );
-    glow.scale.setScalar(def.radius * (def.kind === "probe" ? 5 : 7));
+    glow.scale.setScalar(def.kind === "probe" ? 2.2 : def.radius * 7);
     anchor.add(glow);
 
     const hit = new THREE.Mesh(
@@ -115,6 +213,7 @@ export function createBeyond(ecliptic, scene, makeLabel, focusBody) {
       label,
       labelEl: label.element,
       world: new THREE.Vector3(),
+      glow,
       blurb: def.blurb,
       focusDist: def.focus,
     };
@@ -133,19 +232,8 @@ export function createBeyond(ecliptic, scene, makeLabel, focusBody) {
       depthWrite: false,
     }),
   );
-  const wire = new THREE.Mesh(
-    new THREE.SphereGeometry(helioR, 28, 16),
-    new THREE.MeshBasicMaterial({
-      color: 0xb7c6e4,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.16,
-      depthWrite: false,
-    }),
-  );
   shell.raycast = () => {};
-  wire.raycast = () => {};
-  ecliptic.add(shell, wire);
+  ecliptic.add(shell);
   const marker = new THREE.Group();
   marker.position.set(helioR, 4, 0);
   ecliptic.add(marker);
@@ -201,13 +289,14 @@ export function createBeyond(ecliptic, scene, makeLabel, focusBody) {
 
   function update(camera, simDays = 0, focusName = "") {
     for (const star of stars) {
+      if (star.kind === "probe") star.anchor.lookAt(0, 0, 0);
       star.anchor.getWorldPosition(star.world);
       star.label.position.copy(star.world);
-      star.label.position.y += star.radius * 2.4 + 1.4;
+      star.label.position.y += star.kind === "probe" ? 3.4 : star.radius * 2.4 + 1.4;
+      if (star.kind === "probe") star.glow.visible = !camera || camera.position.distanceTo(star.world) > 28;
     }
     const far = camera && camera.position.length() > helioR * 0.82;
     shell.visible = far;
-    wire.visible = far;
     marker.getWorldPosition(helio.world);
     helio.label.position.copy(helio.world);
     helio.label.position.y += 6;
