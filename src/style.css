@@ -45,6 +45,9 @@ button { cursor: pointer; }
   height: 100%;
 }
 
+#view canvas.is-grab { cursor: grab; }
+#view canvas.is-grabbing { cursor: grabbing; }
+
 .vignette {
   position: fixed;
   inset: 0;
@@ -182,7 +185,8 @@ h1 {
   grid-template-areas:
     ". up ."
     "left . right"
-    ". down .";
+    ". down ."
+    "zin . zout";
   gap: 6px;
   pointer-events: none;
 }
@@ -197,8 +201,11 @@ h1 {
 
 .pad button {
   pointer-events: auto;
+  display: grid;
+  place-items: center;
   width: 42px;
   height: 42px;
+  padding: 0;
   border-radius: 14px;
   border: 1px solid var(--line);
   background: rgba(8, 12, 22, 0.72);
@@ -214,6 +221,14 @@ h1 {
 .pad button[data-look="left"] { grid-area: left; }
 .pad button[data-look="right"] { grid-area: right; }
 .pad button[data-look="down"] { grid-area: down; }
+.pad button[data-zoom="in"] { grid-area: zin; }
+.pad button[data-zoom="out"] { grid-area: zout; }
+
+.pad button svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
 
 .pad button:hover,
 .pad button.is-on {
@@ -606,12 +621,12 @@ button:focus-visible, input:focus-visible {
   .panel { max-height: 58vh; }
   .pad {
     right: auto;
-    left: 50%;
+    left: 8px;
     bottom: 14px;
-    transform: translateX(-50%);
-    grid-template-areas: "left up down right";
-    grid-auto-columns: 40px;
-    grid-template-rows: 40px;
+    transform: none;
+    grid-template-areas: "zin left up down right zout";
+    grid-auto-columns: 36px;
+    grid-template-rows: 36px;
   }
   .pad.away {
     left: 10px;
@@ -621,9 +636,11 @@ button:focus-visible, input:focus-visible {
     grid-template-areas:
       ". up ."
       "left . right"
-      ". down .";
+      ". down ."
+      "zin . zout";
+    grid-template-rows: 36px 36px 36px 36px;
   }
-  .pad button { width: 40px; height: 40px; }
+  .pad button { width: 36px; height: 36px; }
   .details {
     top: 78px;
     right: 12px;

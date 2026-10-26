@@ -37,6 +37,7 @@ const ui = {
   elapsed: $("elapsed"),
   traveled: $("traveled"),
   frame: $("frame"),
+  viewDeg: $("view-deg"),
   focusLabel: $("focus-label"),
   focusStat: $("focus-stat"),
   lesson: $("lesson"),
@@ -97,7 +98,7 @@ const state = {
   simDays: 0,
   playing: true,
   daysPerSecond: 7,
-  spaceMode: true,
+  spaceMode: false,
   motion: 0.08,
   tilt: 60 * THREE.MathUtils.DEG2RAD,
   trailYears: 5,
@@ -238,7 +239,9 @@ updateBodies();
 updateHud();
 window.addEventListener("resize", resize);
 renderer.domElement.addEventListener("pointerdown", onPointerDown);
+renderer.domElement.addEventListener("pointermove", onPointerMove);
 renderer.domElement.addEventListener("pointerup", onPointerUp);
+renderer.domElement.addEventListener("pointercancel", onPointerUp);
 controls.addEventListener("start", () => {
   focusTween = 0;
   following = false;
@@ -404,7 +407,23 @@ function onSmoothWheel(event) {
   zoomPoint.y = event.clientY;
 }
 
+const zoomHeld = { in: false, out: false };
+
+function queueZoom(amount) {
+  zoomCarry = THREE.MathUtils.clamp(zoomCarry + amount, -8, 8);
+  const rect = renderer.domElement.getBoundingClientRect();
+  zoomPoint.x = rect.left + rect.width / 2;
+  zoomPoint.y = rect.top + rect.height / 2;
+}
+
+function setZoom(dir, on) {
+  zoomHeld[dir] = on;
+  ui.lookPad.querySelector(`[data-zoom="${dir}"]`)?.classList.toggle("is-on", on);
+}
+
 function applySmoothZoom(dt) {
+  const held = (zoomHeld.out ? 1 : 0) - (zoomHeld.in ? 1 : 0);
+  if (held) queueZoom(held * 5 * dt);
   if (Math.abs(zoomCarry) < 0.0004) {
     zoomCarry = 0;
     return;
@@ -537,6 +556,7 @@ function updateHud() {
   const trueAU = (state.simDays / YEAR) * SUN_AU_PER_YEAR;
   ui.traveled.textContent = state.spaceMode ? `${formatAU(trueAU * state.motion)} on screen` : "Sun held still";
   ui.frame.textContent = state.spaceMode ? "Through space" : "Around the Sun";
+  ui.viewDeg.textContent = viewDegrees();
 
   const focused = findFocus();
   ui.lesson.textContent = state.live
@@ -805,15 +825,24 @@ function bindUi() {
   });
   ui.lookPad.addEventListener("pointerdown", (event) => {
     const button = event.target.closest("button");
-    if (!button?.dataset.look) return;
+    if (!button) return;
+    if (button.dataset.zoom) {
+      event.preventDefault();
+      setZoom(button.dataset.zoom, true);
+      queueZoom(button.dataset.zoom === "in" ? -1.15 : 1.15);
+      button.setPointerCapture(event.pointerId);
+      return;
+    }
+    if (!button.dataset.look) return;
     event.preventDefault();
     setLook(button.dataset.look, true);
     button.setPointerCapture(event.pointerId);
   });
   const releaseLook = (event) => {
     const button = event.target.closest("button");
-    if (!button?.dataset.look) return;
-    setLook(button.dataset.look, false);
+    if (!button) return;
+    if (button.dataset.zoom) setZoom(button.dataset.zoom, false);
+    if (button.dataset.look) setLook(button.dataset.look, false);
   };
   ui.lookPad.addEventListener("pointerup", releaseLook);
   ui.lookPad.addEventListener("pointercancel", releaseLook);
@@ -938,6 +967,7 @@ function bindUi() {
   syncTilt();
   syncFrameLesson();
   ui.trailVal.textContent = "5 yr";
+  setMode(false);
   applyQuery();
 }
 
@@ -1165,7 +1195,7 @@ function copyShareLink() {
 
 function applyQuery() {
   const q = new URLSearchParams(location.search);
-  if (q.get("m") === "sun") setMode(false);
+  if (q.get("m") === "space") setMode(true);
   const speed = Number(q.get("s"));
   if (q.has("s") && speed > 0) {
     state.daysPerSecond = speed;
@@ -1308,6 +1338,17 @@ function formatAU(au) {
   if (v < 100) return `${sign}${v.toFixed(1)} AU`;
   if (v < 1e6) return `${sign}${Math.round(v).toLocaleString()} AU`;
   return `${sign}${(v / 63241).toFixed(2)} ly`;
+}
+
+function viewDegrees() {
+  const ox = camera.position.x - controls.target.x;
+  const oy = camera.position.y - controls.target.y;
+  const oz = camera.position.z - controls.target.z;
+  const dist = Math.hypot(ox, oy, oz) || 1;
+  const elev = Math.round(Math.asin(THREE.MathUtils.clamp(oy / dist, -1, 1)) * THREE.MathUtils.RAD2DEG);
+  const around = Math.round(THREE.MathUtils.euclideanModulo(Math.atan2(ox, oz) * THREE.MathUtils.RAD2DEG, 360));
+  const pitch = elev >= 0 ? `${elev}° up` : `${-elev}° down`;
+  return `${pitch} · ${around}°`;
 }
 
 function formatDate(simDays) {
@@ -2222,10 +2263,23 @@ function mulberry32(seed) {
 }
 
 function onPointerDown(event) {
-  pointer = { x: event.clientX, y: event.clientY };
+  pointer = { x: event.clientX, y: event.clientY, button: event.button };
+  if (event.button === 2) renderer.domElement.classList.add("is-grab");
+}
+
+function onPointerMove(event) {
+  if (pointer?.button !== 2) return;
+  if ((event.buttons & 2) === 0) return;
+  const dx = event.clientX - pointer.x;
+  const dy = event.clientY - pointer.y;
+  renderer.domElement.classList.toggle("is-grab", dx * dx + dy * dy <= 4);
+  renderer.domElement.classList.toggle("is-grabbing", dx * dx + dy * dy > 4);
 }
 
 function onPointerUp(event) {
+  if (event.button === 2 || pointer?.button === 2) {
+    renderer.domElement.classList.remove("is-grab", "is-grabbing");
+  }
   if (!pointer) return;
   const dx = event.clientX - pointer.x;
   const dy = event.clientY - pointer.y;

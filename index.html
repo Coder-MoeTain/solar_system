@@ -18,7 +18,7 @@
     <header class="top">
       <p class="kicker">Observatory</p>
       <h1>Solar System</h1>
-      <p class="sub">The Sun is moving through the galaxy. Planets keep orbiting, so their trails become helices.</p>
+      <p class="sub">The Sun is held still. Planets trace the closed orbits of a textbook.</p>
     </header>
 
     <section class="telemetry" aria-label="Simulation readout">
@@ -28,11 +28,12 @@
         <button id="play" class="play" type="button">Pause</button>
         <button id="tour-stop" class="play" type="button" hidden>Stop tour</button>
       </div>
-      <p class="lesson" id="lesson">The Sun moves through the galaxy at 220 km/s. Planets keep orbiting, so each trail is a helix.</p>
+      <p class="lesson" id="lesson">The Sun is held still, so each orbit closes. Choose Through space to stretch those orbits into helices.</p>
       <dl class="readout">
         <div><dt>Elapsed</dt><dd id="elapsed">0.00 yr</dd></div>
-        <div><dt>Sun traveled</dt><dd id="traveled">0 AU</dd></div>
-        <div><dt>Frame</dt><dd id="frame">Through space</dd></div>
+        <div><dt>Sun traveled</dt><dd id="traveled">Sun held still</dd></div>
+        <div><dt>Frame</dt><dd id="frame">Around the Sun</dd></div>
+        <div><dt>View</dt><dd id="view-deg">0° up · 0°</dd></div>
         <div><dt id="focus-label">Sun</dt><dd id="focus-stat">220 km/s</dd></div>
       </dl>
     </section>
@@ -60,11 +61,17 @@
       <p id="compare-out" class="hint"></p>
     </aside>
 
-    <div class="pad" id="look-pad" role="group" aria-label="Look around">
+    <div class="pad" id="look-pad" role="group" aria-label="Look and zoom">
       <button type="button" data-look="up" aria-label="Look up">↑</button>
       <button type="button" data-look="left" aria-label="Look left">←</button>
       <button type="button" data-look="right" aria-label="Look right">→</button>
       <button type="button" data-look="down" aria-label="Look down">↓</button>
+      <button type="button" data-zoom="in" aria-label="Zoom in">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6.25" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M14.8 14.8 20 20M10 7.4v5.2M7.4 10h5.2" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+      </button>
+      <button type="button" data-zoom="out" aria-label="Zoom out">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6.25" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M14.8 14.8 20 20M7.4 10h5.2" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+      </button>
     </div>
 
     <button id="toggle" class="toggle" type="button">Display</button>
@@ -91,10 +98,10 @@
 
       <p class="label">Reference frame</p>
       <div class="segment" role="group" aria-label="Reference frame">
-        <button type="button" id="mode-space" aria-pressed="true">Through space</button>
-        <button type="button" id="mode-orbit" aria-pressed="false">Around the Sun</button>
+        <button type="button" id="mode-space" aria-pressed="false">Through space</button>
+        <button type="button" id="mode-orbit" aria-pressed="true">Around the Sun</button>
       </div>
-      <p class="hint" id="frame-lesson">The Sun is moving. Orbits stretch into helices along that path.</p>
+      <p class="hint" id="frame-lesson">The Sun is held still. You see the closed orbit, the view in a textbook.</p>
 
       <p class="label">Time</p>
       <div class="presets" id="presets">
@@ -123,7 +130,7 @@
       <div class="checks">
         <label class="check"><input id="show-labels" type="checkbox" checked /> Labels</label>
         <label class="check"><input id="show-trails" type="checkbox" checked /> Trails</label>
-        <label class="check"><input id="show-orbits" type="checkbox" /> Orbit guides</label>
+        <label class="check"><input id="show-orbits" type="checkbox" checked /> Orbit guides</label>
         <label class="check"><input id="show-belt" type="checkbox" checked /> Asteroids</label>
         <label class="check"><input id="show-moon" type="checkbox" checked /> Moons</label>
         <label class="check"><input id="show-satellites" type="checkbox" checked /> Satellites</label>
