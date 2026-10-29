@@ -96,6 +96,7 @@ h1 {
 }
 
 .telemetry {
+  display: none;
   position: fixed;
   left: 22px;
   bottom: 18px;

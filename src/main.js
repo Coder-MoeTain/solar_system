@@ -794,12 +794,16 @@ function focusBody(name) {
   updateHud();
 }
 
+function showOrbitGuides(show) {
+  for (const body of bodies) body.guide.visible = show && body.kind === "planet";
+}
+
 function setMode(space) {
   state.spaceMode = space;
   ui.modeSpace.setAttribute("aria-pressed", String(space));
   ui.modeOrbit.setAttribute("aria-pressed", String(!space));
   ui.orbits.checked = !space;
-  for (const body of bodies) body.guide.visible = !space;
+  showOrbitGuides(!space);
   arrow.visible = space;
   syncFrameLesson();
 }
@@ -886,8 +890,7 @@ function bindUi() {
   });
   ui.trails.addEventListener("change", () => {});
   ui.orbits.addEventListener("change", () => {
-    const show = ui.orbits.checked;
-    for (const body of bodies) body.guide.visible = show;
+    showOrbitGuides(ui.orbits.checked);
   });
   ui.moon.addEventListener("change", () => {
     for (const moon of moons) {
